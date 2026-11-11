@@ -1,106 +1,48 @@
-const addButton = document.querySelector('.add');
-const clearButton = document.querySelector('.clear');
-const textArea = document.querySelector('.txt-area');
-const taskList = document.querySelector('.task-list');
-const taskListItem = document.getElementsByClassName('.task-list-item');
+// Small frontend-only task manager; tasks persist in localStorage.
+const input = document.querySelector('.txt-area');
+const list = document.querySelector('.task-list');
+let tasks = [];
+try { tasks = JSON.parse(localStorage.getItem('todo-tasks') || '[]'); } catch (_) { tasks = []; }
+if (!Array.isArray(tasks)) tasks = [];
 
-const list = [];
-
-function main() {
-    const listElement = document.createElement('li');
-    const taskContent = document.createElement('input');
-    const deleteElement = document.createElement('button');
-    const editButton = document.createElement('button');
-    const checkbox = document.createElement('input');
-
-    taskContent.setAttribute('readonly', 'readonly');
-    checkbox.type = 'checkbox'
-    checkbox.className = 'checkbox';
-    listElement.className = 'task-list-item';
-    taskContent.className = 'task-content';
-    deleteElement.className = 'delete-button';
-    editButton.className = 'edit-button';
-    deleteElement.textContent = 'Delete';
-    editButton.textContent = 'Edit';
-
-    if (!(textArea.value === '')) {
-        list.push(listElement);
-        taskList.appendChild(listElement);
-        listElement.appendChild(checkbox);
-        listElement.appendChild(taskContent);
-        listElement.appendChild(editButton);
-        listElement.appendChild(deleteElement);
-        taskContent.value = textArea.value;
-        
-        list.forEach(function(element, key) {
-            element.id = key;
-            taskList.appendChild(element);
-        });
-    }
-
-    else {
-        return;
-    }
-
-    textArea.value = '';
-    taskContent.disabled = true;
-
-    editButton.addEventListener('click', function(event) {
-        event.preventDefault();
-
-        if (editButton.textContent.toLocaleLowerCase() === 'edit') {
-            taskContent.disabled = false;
-            taskContent.removeAttribute('readonly');
-            taskContent.focus();
-            editButton.textContent = 'Save';
-        }
-        else {
-            taskContent.setAttribute('readonly', 'readonly');
-            taskContent.disabled = true;
-            editButton.textContent = 'Edit';
-        }
+function save() { localStorage.setItem('todo-tasks', JSON.stringify(tasks)); }
+function render() {
+  list.replaceChildren();
+  tasks.forEach((task, i) => {
+    const li = document.createElement('li');
+    li.className = 'task-list-item';
+    const check = document.createElement('input');
+    check.type = 'checkbox';
+    check.className = 'checkbox';
+    check.checked = Boolean(task.done);
+    check.setAttribute('aria-label', 'Select ' + task.text);
+    check.addEventListener('change', () => { tasks[i].done = check.checked; save(); });
+    const value = document.createElement('input');
+    value.className = 'task-content';
+    value.value = task.text;
+    value.readOnly = true;
+    const edit = document.createElement('button');
+    edit.className = 'edit-button';
+    edit.textContent = 'Edit';
+    edit.addEventListener('click', () => {
+      if (value.readOnly) { value.readOnly = false; value.focus(); edit.textContent = 'Save'; }
+      else { const text = value.value.trim(); if (!text) return; tasks[i].text = text.slice(0, 100); value.readOnly = true; edit.textContent = 'Edit'; save(); render(); }
     });
-
-    deleteElement.addEventListener('click', function(event) {
-        event.preventDefault();
-        const index = event.target.parentNode.id;
-        list.splice(index, 1);
-        this.parentElement.remove();
-
-        console.log(list);
-    });
-
-    clearButton.addEventListener('click', function(event) {
-        event.preventDefault();
-
-        const checkboxes = document.getElementsByClassName('checkbox');
-
-        for (let i = 0; i < checkboxes.length; i++) {
-            if (checkboxes[i].checked) {
-                checkboxes[i].parentElement.remove();
-                list.splice(list[i], 1);
-            }
-        }
-    });
+    const del = document.createElement('button');
+    del.className = 'delete-button';
+    del.textContent = 'Delete';
+    del.addEventListener('click', () => { tasks.splice(i, 1); save(); render(); });
+    li.append(check, value, edit, del);
+    list.append(li);
+  });
 }
-
-textArea.addEventListener('keydown', function(event) {
-    if (event.keyCode === 13) {
-        event.preventDefault();
-        if (list.length < 7) {
-            main();
-        }
-        else {
-            console.log('task list is full!');
-        }
-    }
-});
-
-addButton.addEventListener('click', function() {
-    if (list.length < 7) {
-        main();
-    }
-    else {
-        console.log('task list is full!');
-    }
-});
+function addTask() {
+  const text = input.value.trim();
+  if (!text) return;
+  if (tasks.length >= 7) { alert('Maximum 7 tasks in this demo.'); return; }
+  tasks.push({text:text.slice(0, 100),done:false}); input.value=''; save(); render();
+}
+document.querySelector('.add').addEventListener('click', addTask);
+document.querySelector('.clear').addEventListener('click', () => { tasks=tasks.filter(t=>!t.done);save();render(); });
+input.addEventListener('keydown', e=>{if(e.key==='Enter'){e.preventDefault();addTask();}});
+render();
